@@ -178,6 +178,7 @@
     "ServerboundMovePlayerPacketMixin",
     "ServerPlayerMixin",
     "ShaderManagerMixin",
+	"ShaderCapeFixMixin",
     "ShadowFeatureRendererMixin",
     "ShulkerBoxMenuAccessor",
     "SkinManagerAccessor",
