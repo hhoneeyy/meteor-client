@@ -171,6 +171,7 @@
     "ServerResourcePackLoaderMixin",
     "ShaderLoaderMixin",
     "ShadowPiecesCommandRendererMixin",
+    "ShaderCapeFixMixin",
     "ShulkerBoxScreenHandlerAccessor",
     "SimpleEntityLookupAccessor",
     "SimpleOptionMixin",
