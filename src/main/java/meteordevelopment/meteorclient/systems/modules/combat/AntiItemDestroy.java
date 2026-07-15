@@ -9,13 +9,13 @@ import meteordevelopment.meteorclient.systems.modules.Categories;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.orbit.EventHandler;
 import meteordevelopment.orbit.EventPriority;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
-import net.minecraft.network.protocol.game.ServerboundInteractPacket;
-import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerInteractEntityC2SPacket;
+import net.minecraft.network.packet.s2c.play.EntityStatusS2CPacket;
 
 public class AntiItemDestroy extends Module {
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
@@ -31,7 +31,7 @@ public class AntiItemDestroy extends Module {
     private int blockTimer = 0;
 
     public AntiItemDestroy() {
-        super(Categories.Combat, "anti-item-destroy", "Prevents blowing up loot on version 26.1.2.");
+        super(Categories.Combat, "anti-item-destroy", "Prevents blowing up loot after a kill.");
     }
 
     @Override
@@ -43,10 +43,9 @@ public class AntiItemDestroy extends Module {
     private void onTick(TickEvent.Post event) {
         if (blockTimer > 0) blockTimer--;
 
-        // In 26.1.2, mc.level replaces mc.world
-        if (mc.level == null || mc.player == null) return;
+        if (mc.world == null || mc.player == null) return;
 
-        for (Player player : mc.level.players()) {
+        for (PlayerEntity player : mc.world.getPlayers()) {
             if (player != mc.player && !player.isAlive() && mc.player.distanceTo(player) < 8) {
                 blockTimer = delayTicks.get();
             }
@@ -55,11 +54,11 @@ public class AntiItemDestroy extends Module {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     private void onReceivePacket(PacketEvent.Receive event) {
-        if (event.packet instanceof ClientboundEntityEventPacket packet) {
-            // In 26.1.2, event logic for death (3) is often handled via these status packets
-            if (packet.getEventId() == 3) { 
-                Entity entity = packet.getEntity(mc.level);
-                if (entity instanceof Player && entity != mc.player) {
+        if (event.packet instanceof EntityStatusS2CPacket packet) {
+            // Status 3 = entity death
+            if (packet.getStatus() == 3) {
+                Entity entity = packet.getEntity(mc.world);
+                if (entity instanceof PlayerEntity && entity != mc.player) {
                     if (mc.player.distanceTo(entity) < 10) {
                         blockTimer = delayTicks.get();
                         info("Target killed. Protection active.");
@@ -73,16 +72,16 @@ public class AntiItemDestroy extends Module {
     private void onSendPacket(PacketEvent.Send event) {
         if (blockTimer <= 0) return;
 
-        // Block PLACING (Crystals/Anchors use ServerboundUseItemOnPacket)
-        if (event.packet instanceof ServerboundUseItemOnPacket packet) {
-            ItemStack stack = mc.player.getItemInHand(packet.getHand());
-            if (stack.is(Items.END_CRYSTAL) || stack.is(Items.RESPAWN_ANCHOR) || stack.is(Items.GLOWSTONE)) {
+        // Block PLACING (Crystals/Anchors use PlayerInteractBlockC2SPacket)
+        if (event.packet instanceof PlayerInteractBlockC2SPacket packet) {
+            ItemStack stack = mc.player.getStackInHand(packet.getHand());
+            if (stack.isOf(Items.END_CRYSTAL) || stack.isOf(Items.RESPAWN_ANCHOR) || stack.isOf(Items.GLOWSTONE)) {
                 event.cancel();
             }
         }
 
-        // Block BREAKING (ServerboundInteractPacket handles entity attacks)
-        if (event.packet instanceof ServerboundInteractPacket) {
+        // Block BREAKING (PlayerInteractEntityC2SPacket handles entity attacks)
+        if (event.packet instanceof PlayerInteractEntityC2SPacket) {
             event.cancel();
         }
     }
